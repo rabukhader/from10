@@ -37,6 +37,8 @@ export type MessageKey =
   | "apiKey.warning.browser"
   | "apiKey.error.empty"
   | "apiKey.error.format"
+  | "apiKey.error.baseUrl"
+  | "apiKey.error.model"
   | "apiKey.error.auth"
   | "apiKey.error.http"
   | "apiKey.error.network"
@@ -54,6 +56,14 @@ export type MessageKey =
   | "settings.api.stored"
   | "settings.api.noneStored"
   | "settings.api.newPlaceholder"
+  | "settings.api.provider"
+  | "settings.api.providerOpenAi"
+  | "settings.api.providerDeepSeek"
+  | "settings.api.providerCustom"
+  | "settings.api.baseUrl"
+  | "settings.api.gradingModel"
+  | "settings.api.examExtractionModel"
+  | "settings.api.compatHint"
   | "settings.api.save"
   | "settings.api.remove"
   | "settings.api.retest"
@@ -427,7 +437,7 @@ export const messages: Record<Locale, Record<MessageKey, string>> = {
     "session.examTitleSuggestion.midterm": "Mid-term exam",
     "questions.upload.sectionTitle": "Import questions from exam images or PDFs",
     "questions.upload.sectionHint":
-      "Upload clear photos or PDF exam papers. PDFs are converted to page images in your browser, then sent once to OpenAI to rebuild editable questions and criteria — always review before grading.",
+      "Upload clear photos or PDF exam papers. PDFs are converted to page images in your browser, then sent once to your AI provider to rebuild editable questions and criteria — always review before grading.",
     "questions.upload.pickFiles": "Choose images or PDF",
     "questions.upload.fileTypesHint":
       "PNG, JPG, WebP, GIF, or PDF. Large PDFs are limited to the first pages (see app limits).",
@@ -573,7 +583,7 @@ export const messages: Record<Locale, Record<MessageKey, string>> = {
     "grading.noQuestions":
       "No exam questions in this session yet. Add questions before grading.",
     "grading.loadingSubmission": "Loading submission text for prompts…",
-    "grading.noApiKey": "Add an OpenAI API key to run AI grading.",
+    "grading.noApiKey": "Add an AI provider API key to run AI grading.",
     "grading.openSettings": "Open settings",
     "grading.weakSubmissionHint":
       "Nothing usable was found to send to the model (no pasted text, readable files, or supported photos/PDF pages). Add content before grading.",
@@ -678,36 +688,48 @@ export const messages: Record<Locale, Record<MessageKey, string>> = {
     "common.redirecting": "Redirecting…",
     "apiKey.warning.title": "Important",
     "apiKey.warning.browser":
-      "Your API key is stored only in this browser (localStorage). It is sent directly from your browser to OpenAI when you grade. Do not use a production or shared key here — browser usage is best treated as personal/local tooling.",
-    "apiKey.error.empty": "Enter your OpenAI API key.",
+      "Your API key is stored only in this browser (localStorage). It is sent directly from your browser to the configured AI provider when you grade. Do not use a production or shared key here — browser usage is best treated as personal/local tooling.",
+    "apiKey.error.empty": "Enter your API key.",
     "apiKey.error.format":
       "That key does not look like a typical OpenAI secret key (expected to start with sk-).",
+    "apiKey.error.baseUrl":
+      "Enter a valid OpenAI-compatible base URL, such as https://api.openai.com/v1 or https://api.deepseek.com.",
+    "apiKey.error.model": "Enter model IDs for grading and exam extraction.",
     "apiKey.error.auth":
-      "OpenAI rejected this key (unauthorized). Check the key and try again.",
+      "The provider rejected this key (unauthorized). Check the key and try again.",
     "apiKey.error.http":
-      "OpenAI returned an unexpected response. Try again in a moment.",
+      "The provider returned an unexpected response. Try again in a moment.",
     "apiKey.error.network":
-      "Could not reach OpenAI from this browser (network/CORS/offline). If this persists, your browser may be blocking the request.",
+      "Could not reach the provider from this browser (network/CORS/offline). If this persists, your browser may be blocking the request.",
     "apiKey.error.generic": "Something went wrong while validating the key.",
     "apiKey.success.test": "Key looks valid.",
-    "onboarding.title": "Connect OpenAI",
+    "onboarding.title": "Connect an AI provider",
     "onboarding.description":
-      "AI-assisted grading needs your OpenAI API key. It stays on this device only unless your browser syncs storage.",
-    "onboarding.fieldLabel": "OpenAI API key",
-    "onboarding.fieldPlaceholder": "sk-…",
+      "AI-assisted grading needs an OpenAI-compatible API key. It stays on this device only unless your browser syncs storage.",
+    "onboarding.fieldLabel": "API key",
+    "onboarding.fieldPlaceholder": "Paste your provider API key",
     "onboarding.test": "Test API key",
     "onboarding.continue": "Continue to app",
     "settings.pageTitle": "Settings",
-    "settings.api.title": "OpenAI API key",
+    "settings.api.title": "AI provider",
     "settings.api.hint":
-      "Update or remove your key anytime. Removing it will send you back to setup.",
+      "Use OpenAI or any OpenAI-compatible Chat Completions provider. Removing the key will send you back to setup.",
     "settings.api.stored": "A key is saved locally.",
     "settings.api.noneStored": "No key saved.",
-    "settings.api.newPlaceholder": "Paste a new sk-… key",
-    "settings.api.save": "Save key",
+    "settings.api.newPlaceholder": "Paste a new key, or leave blank to keep the saved key",
+    "settings.api.provider": "Provider",
+    "settings.api.providerOpenAi": "OpenAI",
+    "settings.api.providerDeepSeek": "DeepSeek",
+    "settings.api.providerCustom": "Custom compatible endpoint",
+    "settings.api.baseUrl": "Base URL",
+    "settings.api.gradingModel": "Grading model",
+    "settings.api.examExtractionModel": "Exam extraction / vision model",
+    "settings.api.compatHint":
+      "Text grading works with compatible chat models. Image/PDF extraction and image-based submissions need a provider/model that accepts vision input.",
+    "settings.api.save": "Save provider",
     "settings.api.remove": "Remove key",
     "settings.api.retest": "Test key",
-    "settings.api.removeTitle": "Remove API key?",
+    "settings.api.removeTitle": "Remove AI provider key?",
     "settings.api.removeDescription":
       "Grading will be unavailable until you add a key again.",
     "settings.api.removeConfirm": "Remove",
@@ -1073,6 +1095,9 @@ export const messages: Record<Locale, Record<MessageKey, string>> = {
     "apiKey.error.empty": "أدخل مفتاح OpenAI.",
     "apiKey.error.format":
       "لا يبدو المفتاح كمفتاح OpenAI النموذجي (يُفترض أن يبدأ بـ sk-).",
+    "apiKey.error.baseUrl":
+      "Enter a valid OpenAI-compatible base URL, such as https://api.openai.com/v1 or https://api.deepseek.com.",
+    "apiKey.error.model": "Enter model IDs for grading and exam extraction.",
     "apiKey.error.auth":
       "رفض OpenAI هذا المفتاح (غير مصرَّح). تحقق من المفتاح وحاول مجددًا.",
     "apiKey.error.http":
@@ -1095,6 +1120,15 @@ export const messages: Record<Locale, Record<MessageKey, string>> = {
     "settings.api.stored": "تم حفظ مفتاح محليًا.",
     "settings.api.noneStored": "لا يوجد مفتاح محفوظ.",
     "settings.api.newPlaceholder": "الصق مفتاحًا جديدًا sk-…",
+    "settings.api.provider": "Provider",
+    "settings.api.providerOpenAi": "OpenAI",
+    "settings.api.providerDeepSeek": "DeepSeek",
+    "settings.api.providerCustom": "Custom compatible endpoint",
+    "settings.api.baseUrl": "Base URL",
+    "settings.api.gradingModel": "Grading model",
+    "settings.api.examExtractionModel": "Exam extraction / vision model",
+    "settings.api.compatHint":
+      "Text grading works with compatible chat models. Image/PDF extraction and image-based submissions need a provider/model that accepts vision input.",
     "settings.api.save": "حفظ المفتاح",
     "settings.api.remove": "إزالة المفتاح",
     "settings.api.retest": "اختبار المفتاح",

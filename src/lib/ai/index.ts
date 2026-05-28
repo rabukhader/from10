@@ -3,6 +3,17 @@ export {
   type ApiKeyErrorCode,
   type ValidateApiKeyResult,
 } from "./validate-openai-api-key";
+export {
+  OPENAI_COMPATIBLE_PROVIDER_PRESETS,
+  DEFAULT_OPENAI_COMPATIBLE_SETTINGS,
+  buildOpenAiCompatibleUrl,
+  isValidOpenAiCompatibleBaseUrl,
+  normalizeOpenAiCompatibleBaseUrl,
+  providerPresetById,
+  type OpenAiCompatibleModelSettings,
+  type OpenAiCompatibleProviderPreset,
+  type OpenAiCompatibleProviderPresetId,
+} from "./openai-compatible";
 export { buildGradingUserPrompt } from "./build-grading-prompt";
 export {
   buildSubmissionAnswerContext,

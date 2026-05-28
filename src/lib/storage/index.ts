@@ -30,7 +30,11 @@ export {
   deleteSessionAndFiles,
 } from "./session-repository";
 export {
+  getOpenAiCompatibleCredentials,
+  setOpenAiCompatibleCredentials,
+  clearOpenAiCompatibleCredentials,
   getOpenAiApiKey,
   setOpenAiApiKey,
   clearOpenAiApiKey,
+  type OpenAiCompatibleCredentials,
 } from "./openai-key";

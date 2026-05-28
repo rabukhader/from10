@@ -8,7 +8,7 @@ import { normalizeExamPrimaryLanguage } from "@/src/domain";
 import { appConfig } from "@/src/config";
 import { extractExamFromImagesWithOpenAi } from "@/src/lib/ai";
 import { filesToVisionDataUrls } from "@/src/lib/exam-upload/files-to-vision-data-urls";
-import { getOpenAiApiKey } from "@/src/lib/storage/openai-key";
+import { getOpenAiCompatibleCredentials } from "@/src/lib/storage/openai-key";
 import { saveSession } from "@/src/lib/storage/session-repository";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -139,8 +139,8 @@ export function ExamMediaUploadCard({
 
   async function runExtract(): Promise<void> {
     setReplaceOpen(false);
-    const apiKey = getOpenAiApiKey();
-    if (!apiKey?.trim()) {
+    const credentials = getOpenAiCompatibleCredentials();
+    if (!credentials?.apiKey.trim()) {
       setError(t("grading.noApiKey"));
       return;
     }
@@ -165,7 +165,9 @@ export function ExamMediaUploadCard({
       }
 
       const outcome = await extractExamFromImagesWithOpenAi({
-        apiKey,
+        apiKey: credentials.apiKey,
+        baseUrl: credentials.baseUrl,
+        model: credentials.examExtractionModel,
         imageUrls: prepared.urls,
         localeHint,
         examPrimaryLanguage: normalizeExamPrimaryLanguage(doc.exam.primaryLanguage),

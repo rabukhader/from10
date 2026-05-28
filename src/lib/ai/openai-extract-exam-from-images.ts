@@ -1,4 +1,5 @@
 import { appConfig } from "@/src/config";
+import { buildOpenAiCompatibleUrl } from "./openai-compatible";
 
 import {
   CHAT_RETRY_EMPTY_ASSISTANT_MESSAGE,
@@ -33,13 +34,35 @@ type ChatCompletionResponse = {
   error?: { message?: string };
 };
 
+type ChatCompletionRequestBody = {
+  model: string;
+  temperature: number;
+  response_format?: { type: "json_object" };
+  messages: ChatMessage[];
+};
+
 function extractAssistantContent(payload: ChatCompletionResponse): string {
   const content = payload.choices?.[0]?.message?.content;
   return typeof content === "string" ? content : "";
 }
 
+function shouldRetryWithoutJsonResponseFormat(
+  response: Response,
+  payload: ChatCompletionResponse,
+): boolean {
+  if (response.status !== 400 && response.status !== 422) return false;
+  const message = payload.error?.message?.toLowerCase() ?? "";
+  return (
+    message.includes("response_format") ||
+    message.includes("json_object") ||
+    message.includes("json mode")
+  );
+}
+
 export async function extractExamFromImagesWithOpenAi(params: {
   apiKey: string;
+  baseUrl?: string;
+  model?: string;
   /** Data URLs or remote URLs readable by OpenAI (browser uses data URLs). */
   imageUrls: string[];
   localeHint?: string;
@@ -48,10 +71,14 @@ export async function extractExamFromImagesWithOpenAi(params: {
   | { ok: true; questions: ExamQuestion[]; attemptsUsed: number }
   | { ok: false; message: string; attemptsUsed: number }
 > {
-  const { apiKey, imageUrls, localeHint, examPrimaryLanguage } = params;
+  const { apiKey, baseUrl, model, imageUrls, localeHint, examPrimaryLanguage } =
+    params;
   const maxRetries = appConfig.openAi.maxJsonRetries;
-  const model = appConfig.openAi.examExtractionModel;
-  const url = appConfig.openAi.chatCompletionsUrl;
+  const requestModel = model?.trim() || appConfig.openAi.examExtractionModel;
+  const url = buildOpenAiCompatibleUrl(
+    baseUrl ?? appConfig.openAi.defaultBaseUrl,
+    appConfig.openAi.chatCompletionsPath,
+  );
 
   const userParts: VisionContentPart[] = [
     {
@@ -90,6 +117,13 @@ export async function extractExamFromImagesWithOpenAi(params: {
       });
     }
 
+    const body: ChatCompletionRequestBody = {
+      model: requestModel,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      messages,
+    };
+
     let response: Response;
     try {
       response = await fetch(url, {
@@ -98,22 +132,38 @@ export async function extractExamFromImagesWithOpenAi(params: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model,
-          temperature: 0.1,
-          response_format: { type: "json_object" },
-          messages,
-        }),
+        body: JSON.stringify(body),
       });
     } catch {
       return {
         ok: false,
-        message: "Network error calling OpenAI.",
+        message: "Network error calling OpenAI-compatible provider.",
         attemptsUsed: attempt + 1,
       };
     }
 
-    const payload = (await response.json()) as ChatCompletionResponse;
+    let payload = (await response.json()) as ChatCompletionResponse;
+
+    if (!response.ok && shouldRetryWithoutJsonResponseFormat(response, payload)) {
+      delete body.response_format;
+      try {
+        response = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+        payload = (await response.json()) as ChatCompletionResponse;
+      } catch {
+        return {
+          ok: false,
+          message: "Network error calling OpenAI-compatible provider.",
+          attemptsUsed: attempt + 1,
+        };
+      }
+    }
 
     if (!response.ok) {
       const apiMessage =
@@ -122,7 +172,7 @@ export async function extractExamFromImagesWithOpenAi(params: {
           : response.statusText;
       return {
         ok: false,
-        message: `OpenAI error (${response.status}): ${apiMessage}`,
+        message: `OpenAI-compatible provider error (${response.status}): ${apiMessage}`,
         attemptsUsed: attempt + 1,
       };
     }

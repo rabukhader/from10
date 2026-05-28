@@ -1,35 +1,63 @@
-const OPENAI_MODELS_URL = "https://api.openai.com/v1/models";
+import { appConfig } from "@/src/config";
 
-export type ApiKeyErrorCode = "empty" | "format" | "auth" | "http" | "network";
+import {
+  buildOpenAiCompatibleUrl,
+  isValidOpenAiCompatibleBaseUrl,
+  normalizeOpenAiCompatibleBaseUrl,
+} from "./openai-compatible";
+
+export type ApiKeyErrorCode =
+  | "empty"
+  | "format"
+  | "base_url"
+  | "model"
+  | "auth"
+  | "http"
+  | "network";
 
 export type ValidateApiKeyResult =
   | { ok: true }
   | { ok: false; code: ApiKeyErrorCode };
 
-function looksLikeOpenAiSecret(key: string): boolean {
-  const k = key.trim();
-  return k.startsWith("sk-") && k.length >= 20;
-}
-
-/** Lightweight check: GET /v1/models (browser call; may fail due to network/CORS policies). */
+/** Lightweight check: GET /models against any OpenAI-compatible provider. */
 export async function validateOpenAiApiKey(
   apiKey: string,
+  options?: {
+    baseUrl?: string;
+    gradingModel?: string;
+    examExtractionModel?: string;
+  },
 ): Promise<ValidateApiKeyResult> {
   const key = apiKey.trim();
   if (!key) {
     return { ok: false, code: "empty" };
   }
-  if (!looksLikeOpenAiSecret(key)) {
-    return { ok: false, code: "format" };
+
+  const baseUrl = normalizeOpenAiCompatibleBaseUrl(
+    options?.baseUrl ?? appConfig.openAi.defaultBaseUrl,
+  );
+  if (!isValidOpenAiCompatibleBaseUrl(baseUrl)) {
+    return { ok: false, code: "base_url" };
+  }
+
+  const gradingModel =
+    options?.gradingModel?.trim() ?? appConfig.openAi.gradingModel;
+  const examExtractionModel =
+    options?.examExtractionModel?.trim() ?? appConfig.openAi.examExtractionModel;
+  if (!gradingModel || !examExtractionModel) {
+    return { ok: false, code: "model" };
   }
 
   try {
-    const response = await fetch(OPENAI_MODELS_URL, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${key}`,
+    const response = await fetch(
+      buildOpenAiCompatibleUrl(baseUrl, appConfig.openAi.modelsPath),
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${key}`,
+        },
       },
-    });
+    );
 
     if (response.ok) {
       return { ok: true };
