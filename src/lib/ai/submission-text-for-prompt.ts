@@ -17,7 +17,6 @@ import {
   submissionFileLineTextReadFailed,
   submissionFileLineUnsupportedBinary,
   submissionFileLineVisionIncluded,
-  submissionMergedAnswerBlock,
   submissionTruncationSuffix,
   submissionVisualBody,
 } from "./prompts/submission-context-prompts";

@@ -33,14 +33,16 @@ export const appConfig = {
     maxGradingPdfPagesPerFile: 8,
   },
 
-  /** OpenAI Chat Completions (browser-side grading); model IDs depend on account/API availability. */
+  /** OpenAI-compatible Chat Completions (browser-side grading); model IDs depend on provider/account availability. */
   openAi: {
+    defaultBaseUrl: "https://api.openai.com/v1",
     gradingModel: "gpt-4o",
     /** Vision-capable model for extracting structured questions from exam images. */
     examExtractionModel: "gpt-4o",
     /** Attempts after the first failed validation (total tries = 1 + maxJsonRetries). */
     maxJsonRetries: 2,
-    chatCompletionsUrl: "https://api.openai.com/v1/chat/completions",
+    chatCompletionsPath: "/chat/completions",
+    modelsPath: "/models",
     /** Max images plus rasterized PDF pages sent to the vision model in one extraction. */
     maxExamVisionSlots: 18,
     /** Cap PDF rendering so one huge document cannot spam the API. */

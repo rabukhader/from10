@@ -28,7 +28,7 @@ import {
   recomputeQuestionTotal,
 } from "@/src/lib/grading";
 import type { MessageKey } from "@/src/lib/i18n/messages";
-import { getOpenAiApiKey } from "@/src/lib/storage/openai-key";
+import { getOpenAiCompatibleCredentials } from "@/src/lib/storage/openai-key";
 
 import { useApiKey } from "@/components/providers/api-key-provider";
 import { useLocale } from "@/components/providers/locale-provider";
@@ -292,8 +292,8 @@ export function ParticipantGradingPanel({
   async function handleAiGrade(question: ExamQuestion): Promise<void> {
     const answerCtx = ctxForQuestion(question.id);
     if (!answerCtx?.hasReadableAnswer || !localGrading) return;
-    const apiKey = getOpenAiApiKey()?.trim();
-    if (!apiKey) return;
+    const credentials = getOpenAiCompatibleCredentials();
+    if (!credentials?.apiKey.trim()) return;
 
     if (question.criteria.length === 0) {
       setLastAiError(t("grading.noCriteria"));
@@ -319,7 +319,9 @@ export function ParticipantGradingPanel({
     });
 
     const outcome = await gradeQuestionWithOpenAi({
-      apiKey,
+      apiKey: credentials.apiKey,
+      baseUrl: credentials.baseUrl,
+      model: credentials.gradingModel,
       question,
       userPrompt,
       visionImageUrls: answerCtx.visionImageUrls,
@@ -346,8 +348,8 @@ export function ParticipantGradingPanel({
   }
 
   async function handleGradeAllWithAi(): Promise<void> {
-    const apiKey = getOpenAiApiKey()?.trim();
-    if (!apiKey || gradableQuestions.length === 0) {
+    const credentials = getOpenAiCompatibleCredentials();
+    if (!credentials?.apiKey.trim() || gradableQuestions.length === 0) {
       return;
     }
 
@@ -385,7 +387,9 @@ export function ParticipantGradingPanel({
         });
 
         const outcome = await gradeQuestionWithOpenAi({
-          apiKey,
+          apiKey: credentials.apiKey,
+          baseUrl: credentials.baseUrl,
+          model: credentials.gradingModel,
           question,
           userPrompt,
           visionImageUrls: answerSlice.visionImageUrls,

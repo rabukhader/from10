@@ -4,12 +4,18 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Loader2Icon } from "lucide-react";
 
-import { validateOpenAiApiKey } from "@/src/lib/ai";
+import {
+  OPENAI_COMPATIBLE_PROVIDER_PRESETS,
+  providerPresetById,
+  validateOpenAiApiKey,
+  type OpenAiCompatibleProviderPresetId,
+} from "@/src/lib/ai";
 import { messageKeyForApiKeyError } from "@/src/lib/i18n/api-key-errors";
 import {
-  clearOpenAiApiKey,
-  getOpenAiApiKey,
-  setOpenAiApiKey,
+  clearOpenAiCompatibleCredentials,
+  getOpenAiCompatibleCredentials,
+  setOpenAiCompatibleCredentials,
+  type OpenAiCompatibleCredentials,
 } from "@/src/lib/storage/openai-key";
 
 import {
@@ -36,6 +42,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { useApiKey } from "@/components/providers/api-key-provider";
 import { useLocale } from "@/components/providers/locale-provider";
@@ -50,11 +63,21 @@ export function OpenAiApiKeySettings() {
   const router = useRouter();
   const { refreshApiKey } = useApiKey();
 
-  const [storedSnapshot, setStoredSnapshot] = React.useState<string | null>(
-    null,
-  );
+  const [storedSnapshot, setStoredSnapshot] =
+    React.useState<OpenAiCompatibleCredentials | null>(null);
 
   const [value, setValue] = React.useState("");
+  const [providerPreset, setProviderPreset] =
+    React.useState<OpenAiCompatibleProviderPresetId>("openai");
+  const [baseUrl, setBaseUrl] = React.useState(
+    providerPresetById("openai").baseUrl,
+  );
+  const [gradingModel, setGradingModel] = React.useState(
+    providerPresetById("openai").gradingModel,
+  );
+  const [examExtractionModel, setExamExtractionModel] = React.useState(
+    providerPresetById("openai").examExtractionModel,
+  );
   const [testing, setTesting] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [removeOpen, setRemoveOpen] = React.useState(false);
@@ -62,23 +85,51 @@ export function OpenAiApiKeySettings() {
   const [testOk, setTestOk] = React.useState(false);
 
   React.useEffect(() => {
-    setStoredSnapshot(getOpenAiApiKey());
+    const stored = getOpenAiCompatibleCredentials();
+    setStoredSnapshot(stored);
+    if (!stored) return;
+    setProviderPreset(stored.providerPreset ?? "custom");
+    setBaseUrl(stored.baseUrl);
+    setGradingModel(stored.gradingModel);
+    setExamExtractionModel(stored.examExtractionModel);
   }, []);
 
   const effectiveKey =
-    value.trim().length > 0 ? value : (storedSnapshot ?? "");
+    value.trim().length > 0 ? value : (storedSnapshot?.apiKey ?? "");
 
-  async function handleTest(): Promise<void> {
+  function resetStatus(): void {
+    setTestOk(false);
+    setErrorText(null);
+  }
+
+  function handleProviderPresetChange(
+    nextPreset: OpenAiCompatibleProviderPresetId,
+  ): void {
+    setProviderPreset(nextPreset);
+    resetStatus();
+    if (nextPreset === "custom") return;
+    const preset = providerPresetById(nextPreset);
+    setBaseUrl(preset.baseUrl);
+    setGradingModel(preset.gradingModel);
+    setExamExtractionModel(preset.examExtractionModel);
+  }
+
+  async function handleTest(): Promise<boolean> {
     setErrorText(null);
     setTestOk(false);
 
-    const result = await validateOpenAiApiKey(effectiveKey);
+    const result = await validateOpenAiApiKey(effectiveKey, {
+      baseUrl,
+      gradingModel,
+      examExtractionModel,
+    });
     if (!result.ok) {
       setErrorText(t(messageKeyForApiKeyError(result.code)));
-      return;
+      return false;
     }
 
     setTestOk(true);
+    return true;
   }
 
   return (
@@ -107,9 +158,103 @@ export function OpenAiApiKeySettings() {
                 : t("settings.api.noneStored")}
             </span>
             {storedSnapshot ? (
-              <Badge variant="outline">{maskKeySuffix(storedSnapshot)}</Badge>
+              <Badge variant="outline">
+                {maskKeySuffix(storedSnapshot.apiKey)}
+              </Badge>
             ) : null}
           </div>
+
+          <div className="grid gap-2">
+            <span className="text-sm font-medium">
+              {t("settings.api.provider")}
+            </span>
+            <Select
+              value={providerPreset}
+              onValueChange={(next) =>
+                handleProviderPresetChange(
+                  next as OpenAiCompatibleProviderPresetId,
+                )
+              }
+            >
+              <SelectTrigger
+                aria-label={t("settings.api.provider")}
+                className="min-h-11 w-full justify-between text-base md:min-h-8 md:text-sm"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {OPENAI_COMPATIBLE_PROVIDER_PRESETS.map((preset) => (
+                  <SelectItem key={preset.id} value={preset.id}>
+                    {preset.id === "openai"
+                      ? t("settings.api.providerOpenAi")
+                      : preset.id === "deepseek"
+                        ? t("settings.api.providerDeepSeek")
+                        : t("settings.api.providerCustom")}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <label htmlFor="settings-base-url" className="text-sm font-medium">
+              {t("settings.api.baseUrl")}
+            </label>
+            <Input
+              id="settings-base-url"
+              value={baseUrl}
+              onChange={(event) => {
+                setBaseUrl(event.target.value);
+                setProviderPreset("custom");
+                resetStatus();
+              }}
+              className="min-h-11 text-base md:min-h-8 md:text-sm"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <label
+                htmlFor="settings-grading-model"
+                className="text-sm font-medium"
+              >
+                {t("settings.api.gradingModel")}
+              </label>
+              <Input
+                id="settings-grading-model"
+                value={gradingModel}
+                onChange={(event) => {
+                  setGradingModel(event.target.value);
+                  setProviderPreset("custom");
+                  resetStatus();
+                }}
+                className="min-h-11 text-base md:min-h-8 md:text-sm"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label
+                htmlFor="settings-exam-extraction-model"
+                className="text-sm font-medium"
+              >
+                {t("settings.api.examExtractionModel")}
+              </label>
+              <Input
+                id="settings-exam-extraction-model"
+                value={examExtractionModel}
+                onChange={(event) => {
+                  setExamExtractionModel(event.target.value);
+                  setProviderPreset("custom");
+                  resetStatus();
+                }}
+                className="min-h-11 text-base md:min-h-8 md:text-sm"
+              />
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            {t("settings.api.compatHint")}
+          </p>
 
           <div className="grid gap-2">
             <label htmlFor="settings-openai-key" className="text-sm font-medium">
@@ -131,8 +276,7 @@ export function OpenAiApiKeySettings() {
               }
               onChange={(event) => {
                 setValue(event.target.value);
-                setTestOk(false);
-                setErrorText(null);
+                resetStatus();
               }}
               className="min-h-11 text-base md:min-h-8 md:text-sm"
             />
@@ -177,7 +321,7 @@ export function OpenAiApiKeySettings() {
             disabled={
               saving ||
               testing ||
-              value.trim().length === 0
+              effectiveKey.trim().length === 0
             }
             className="min-h-11 w-full text-base sm:w-auto sm:min-h-9 sm:text-sm"
             onClick={async () => {
@@ -185,14 +329,24 @@ export function OpenAiApiKeySettings() {
               setErrorText(null);
               setTestOk(false);
               try {
-                const result = await validateOpenAiApiKey(value);
+                const result = await validateOpenAiApiKey(effectiveKey, {
+                  baseUrl,
+                  gradingModel,
+                  examExtractionModel,
+                });
                 if (!result.ok) {
                   setErrorText(t(messageKeyForApiKeyError(result.code)));
                   return;
                 }
-                setOpenAiApiKey(value);
+                setOpenAiCompatibleCredentials({
+                  apiKey: effectiveKey,
+                  baseUrl,
+                  gradingModel,
+                  examExtractionModel,
+                  providerPreset,
+                });
                 refreshApiKey();
-                setStoredSnapshot(getOpenAiApiKey());
+                setStoredSnapshot(getOpenAiCompatibleCredentials());
                 setValue("");
               } finally {
                 setSaving(false);
@@ -239,7 +393,7 @@ export function OpenAiApiKeySettings() {
               variant="destructive"
               className="min-h-11 sm:min-h-9"
               onClick={() => {
-                clearOpenAiApiKey();
+                clearOpenAiCompatibleCredentials();
                 refreshApiKey();
                 setStoredSnapshot(null);
                 setRemoveOpen(false);

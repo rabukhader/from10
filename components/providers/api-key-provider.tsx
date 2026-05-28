@@ -31,6 +31,7 @@ export function ApiKeyProvider({
   React.useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (
+        event.key === storageKeys.llmCredentials ||
         event.key === storageKeys.openAiApiKey ||
         event.key === null
       ) {
